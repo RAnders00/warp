@@ -39,7 +39,8 @@ use http::{
 };
 use hyper::Body;
 
-pub(crate) use self::sealed::{CombineRejection, IsReject};
+pub(crate) use self::sealed::CombineRejection;
+pub use self::sealed::IsReject;
 
 /// Rejects a request with `404 Not Found`.
 #[inline]
@@ -143,15 +144,15 @@ fn __reject_custom_compilefail() {}
 /// ```
 // Require `Sized` for now to prevent passing a `Box<dyn Reject>`, since we
 // would be double-boxing it, and the downcasting wouldn't work as expected.
-pub trait Reject: fmt::Debug + Sized + Send + Sync + 'static {}
+pub trait Reject: fmt::Debug + fmt::Display + Sized + Send + Sync + 'static {}
 
-trait Cause: fmt::Debug + Send + Sync + 'static {
+trait Cause: fmt::Debug + fmt::Display + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
 }
 
 impl<T> Cause for T
 where
-    T: fmt::Debug + Send + Sync + 'static,
+    T: fmt::Debug + fmt::Display + Send + Sync + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -175,15 +176,40 @@ pub struct Rejection {
     reason: Reason,
 }
 
+impl fmt::Display for Rejection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.reason)
+    }
+}
+
 enum Reason {
     NotFound,
     Other(Box<Rejections>),
+}
+
+impl fmt::Display for Reason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Reason::NotFound => write!(f, "{}", StatusCode::NOT_FOUND.canonical_reason().unwrap()),
+            Reason::Other(r) => write!(f, "{}", r),
+        }
+    }
 }
 
 enum Rejections {
     Known(Known),
     Custom(Box<dyn Cause>),
     Combined(Box<Rejections>, Box<Rejections>),
+}
+
+impl fmt::Display for Rejections {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Rejections::Known(k) => write!(f, "{}", k),
+            Rejections::Custom(c) => write!(f, "{}", c),
+            Rejections::Combined(a, b) => write!(f, "{}", preferred(a, b)),
+        }
+    }
 }
 
 macro_rules! enum_known {
