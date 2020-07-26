@@ -189,7 +189,14 @@ impl Rejection {
     pub fn user_message(&self) -> Option<String> {
         match self.reason {
             Reason::NotFound => Some(StatusCode::NOT_FOUND.canonical_reason().unwrap().to_owned()),
-            Reason::Other(ref reason) => reason.user_message()
+            Reason::Other(ref reason) => reason.user_message(),
+        }
+    }
+
+    pub fn error_code(&self) -> Option<&'static str> {
+        match self.reason {
+            Reason::NotFound => Some("not_found"),
+            Reason::Other(ref reason) => reason.error_code(),
         }
     }
 }
@@ -219,7 +226,35 @@ impl Rejections {
         match self {
             Rejections::Known(ref k) => Some(format!("{}", k)),
             Rejections::Custom(_) => None,
-            Rejections::Combined(ref a, ref b) => preferred(a, b).user_message()
+            Rejections::Combined(ref a, ref b) => preferred(a, b).user_message(),
+        }
+    }
+
+    pub fn error_code(&self) -> Option<&'static str> {
+        match self {
+            Rejections::Known(Known::MethodNotAllowed(_)) => Some("method_not_allowed"),
+            Rejections::Known(Known::InvalidHeader(_)) => Some("invalid_header"),
+            Rejections::Known(Known::MissingHeader(_)) => Some("missing_header"),
+            Rejections::Known(Known::MissingCookie(_)) => Some("missing_cookie"),
+            Rejections::Known(Known::InvalidQuery(_)) => Some("invalid_query"),
+            Rejections::Known(Known::LengthRequired(_)) => Some("length_required"),
+            Rejections::Known(Known::PayloadTooLarge(_)) => Some("payload_too_large"),
+            Rejections::Known(Known::UnsupportedMediaType(_)) => Some("unsupported_media_type"),
+            Rejections::Known(Known::FileOpenError(_)) => Some("file_open_error"),
+            Rejections::Known(Known::FilePermissionError(_)) => Some("file_permission_error"),
+            Rejections::Known(Known::BodyReadError(_)) => Some("body_read_error"),
+            Rejections::Known(Known::BodyDeserializeError(_)) => Some("body_deserialize_error"),
+            Rejections::Known(Known::CorsForbidden(_)) => Some("cors_forbidden"),
+            #[cfg(feature = "websocket")]
+            Rejections::Known(Known::MissingConnectionUpgrade(_)) => {
+                Some("missing_connection_upgrade")
+            }
+            Rejections::Known(Known::MissingExtension(_)) => Some("missing_extension"),
+            Rejections::Known(Known::BodyConsumedMultipleTimes(_)) => {
+                Some("body_consumed_multiple_times")
+            }
+            Rejections::Custom(_) => None,
+            Rejections::Combined(ref a, ref b) => preferred(a, b).error_code(),
         }
     }
 }
