@@ -182,6 +182,18 @@ impl fmt::Display for Rejection {
     }
 }
 
+impl Rejection {
+    /// Get a message that can safely be sent to untrusted users of a web service.
+    /// Returns `Some(_)` for trusted error types generated within warp.
+    /// Returns `None` for any custom rejections.
+    pub fn user_message(&self) -> Option<String> {
+        match self.reason {
+            Reason::NotFound => Some(StatusCode::NOT_FOUND.canonical_reason().unwrap().to_owned()),
+            Reason::Other(ref reason) => reason.user_message()
+        }
+    }
+}
+
 enum Reason {
     NotFound,
     Other(Box<Rejections>),
@@ -200,6 +212,16 @@ enum Rejections {
     Known(Known),
     Custom(Box<dyn Cause>),
     Combined(Box<Rejections>, Box<Rejections>),
+}
+
+impl Rejections {
+    fn user_message(&self) -> Option<String> {
+        match self {
+            Rejections::Known(ref k) => Some(format!("{}", k)),
+            Rejections::Custom(_) => None,
+            Rejections::Combined(ref a, ref b) => preferred(a, b).user_message()
+        }
+    }
 }
 
 impl fmt::Display for Rejections {
