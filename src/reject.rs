@@ -128,6 +128,8 @@ fn __reject_custom_compilefail() {}
 
 /// A marker trait to ensure proper types are used for custom rejections.
 ///
+/// Can be converted into Rejection.
+///
 /// # Example
 ///
 /// ```
@@ -400,6 +402,13 @@ impl Rejection {
     }
 }
 
+impl<T: Reject> From<T> for Rejection {
+    #[inline]
+    fn from(err: T) -> Rejection {
+        custom(err)
+    }
+}
+
 impl From<Infallible> for Rejection {
     #[inline]
     fn from(infallible: Infallible) -> Rejection {
@@ -501,7 +510,7 @@ impl Rejections {
                 res
             }
             Rejections::Custom(ref e) => {
-                log::error!(
+                tracing::error!(
                     "unhandled custom rejection, returning 500 response: {:?}",
                     e
                 );
